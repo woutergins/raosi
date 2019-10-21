@@ -1,2 +1,1 @@
-from .system import *
-from .material import *
+from .core import *

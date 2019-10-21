@@ -422,124 +422,7 @@ class OpticalSystem(object):
                     self.ray_direcs.append(ray_direc)
                     self.ray_intensities.append(self.ray_intensities[-1])
 
-    def propagate_from_object_to(self, starting_object, end_object):
-        should_have = 1
-        for i in range(starting_object + 1):
-            if self.objects[i][0].lower() in ['lens', 'window']:
-                should_have += 2
-            else:
-                should_have += 1
-        if len(self.rays) != should_have:
-            self.propagate_to_object(starting_object)
-
-        self.rays = self.rays[:should_have]
-        self.ray_direcs = self.ray_direcs[:should_have]
-        self.ray_intensities = self.ray_intensities[:should_have]
-
-        ray_pos = self.rays[-1]
-        ray_direc = self.ray_direcs[-1]
-        ray_intensities = self.ray_intensities[-1]
-
-        for obj in range(starting_object + 1, end_object+1):
-            if self.objects[obj][0].lower() in ['lens', 'window']:
-                l = self.parameters[self.objects[obj][0]+'_'+str(obj+1)].value
-
-                def intersection1(x, ray_pos, ray_direc):
-                    new_ray = ray_pos + (np.atleast_2d(x).T)*ray_direc
-                    return_val = new_ray[:, 0] - self.objects[obj][1].give_surface_1(new_ray[:, 1:3])-l
-                    return return_val
-
-                def intersection2(x, ray_pos, ray_direc):
-                    new_ray = ray_pos + (np.atleast_2d(x).T)*ray_direc
-                    return_val = new_ray[:, 0] - self.objects[obj][1].give_surface_2(new_ray[:, 1:3])-l
-                    return return_val
-
-                for i in range(0, ray_pos.shape[0], self.stepping):
-                    initial = (l - ray_pos[i:i+self.stepping, 0])/ray_direc[i:i+self.stepping, 0]
-                    result = optimize.root(intersection1, np.ones(ray_pos[i:i+self.stepping].shape[0])*initial, args=(ray_pos[i:i+self.stepping], ray_direc[i:i+self.stepping]))
-                    if not result.success:
-                        initial = 2* initial
-                        result = optimize.root(intersection1, np.ones(ray_pos[i:i+self.stepping].shape[0])*initial, args=(ray_pos[i:i+self.stepping], ray_direc[i:i+self.stepping]))
-                        if not result.success:
-                            print(self.objects[obj], obj, result)
-                            print(ray_pos[i:i+self.stepping])
-                            raise ValueError
-                    try:
-                        distance = np.vstack([distance, (np.atleast_2d(result.x).T)])
-                    except (ValueError, UnboundLocalError):
-                        distance = np.atleast_2d(result.x).T
-                ray_pos = ray_pos + distance*ray_direc
-                ray_direc = self.objects[obj][1].refract(self.n, ray_direc, ray_pos, surface=1)
-                r = (ray_pos[:, 1]**2+ray_pos[:, 2]**2)**0.5
-
-                mask = np.logical_and.reduce([r < self.objects[obj][1].aperture/2, ~np.isnan(ray_direc[:, 0]), distance[:, 0] > 0])
-
-                ray_pos = ray_pos[mask]
-                ray_direcs = ray_direcs[mask]
-                ray_intensities = ray_intensities[mask]
-
-                del distance
-
-                for i in range(0, ray_pos.shape[0], self.stepping):
-                    initial = (l+self.objects[obj][1].thickness-ray_pos[i:i+self.stepping, 0])/ray_direc[i:i+self.stepping, 0]
-                    result = optimize.root(intersection2, np.ones(ray_pos[i:i+self.stepping].shape[0])*initial, args=(ray_pos[i:i+self.stepping], ray_direc[i:i+self.stepping]))
-                    if not result.success:
-                        initial = 2* initial
-                        result = optimize.root(intersection2, np.ones(ray_pos[i:i+self.stepping].shape[0])*initial, args=(ray_pos[i:i+self.stepping], ray_direc[i:i+self.stepping]))
-                        if not result.success:
-                            raise ValueError
-                    try:
-                        distance = np.vstack([distance, np.atleast_2d(result.x).T])
-                    except (ValueError, UnboundLocalError):
-                        distance = np.atleast_2d(result.x).T
-                ray_pos = ray_pos + distance*ray_direc
-                ray_direc = self.objects[obj][1].refract(self.n, ray_direc, ray_pos, surface=2)
-                ray_intensity = self.objects[obj][1].intensity_after_passage(self.wavelength, distance.flatten())
-                r = (ray_pos[:, 1]**2+ray_pos[:, 2]**2)**0.5
-
-                mask = np.logical_and.reduce([r < self.objects[obj][1].aperture/2, ~np.isnan(ray_direc[:, 0]), distance[:, 0] > 0])
-
-                ray_pos = ray_pos[mask]
-                ray_direcs = ray_direcs[mask]
-                ray_intensities = ray_intensities[mask]
-
-                del distance
-            elif self.objects[obj][0].lower() in ['detector']:
-                try:
-                    l = self.parameters[self.objects[obj][0]+'_'+str(obj+1)].value
-                except KeyError:
-                    l = self.parameters[self.objects[obj][0]].value
-
-                def intersection(x, ray_pos, ray_direc):
-                    new_ray = ray_pos + (np.atleast_2d(x).T)*ray_direc
-                    return_val = new_ray[:, 0] - self.objects[obj][1].give_surface_1(new_ray[:, 1:3])-l
-                    return return_val
-
-                for i in range(0, ray_pos.shape[0], self.stepping):
-                    initial = (l - ray_pos[i:i+self.stepping, 0])/ray_direc[i:i+self.stepping, 0]
-                    result = optimize.root(intersection, np.ones(ray_pos[i:i+self.stepping].shape[0])*initial, args=(ray_pos[i:i+self.stepping], ray_direc[i:i+self.stepping]))
-                    try:
-                        distance = np.vstack([distance, np.atleast_2d(result.x).T])
-                    except (ValueError, UnboundLocalError):
-                        distance = np.atleast_2d(result.x).T
-                ray_pos = ray_pos + distance*ray_direc
-                r = (ray_pos[:, 1]**2+ray_pos[:, 2]**2)**0.5
-
-                slit = self.objects[obj][1].slit
-                if not slit > 0:
-                    mask = np.logical_and.reduce([r < self.objects[obj][1].aperture/2, ~np.isnan(ray_direc[:, 0]), distance[:, 0] > 0])
-                else:
-                    z = ray_pos[:, 2]
-                    mask = np.logical_and.reduce([r < self.objects[obj][1].aperture/2, np.abs(z)<slit/2, ~np.isnan(ray_direc[:, 0]), distance[:, 0] > 0])
-
-                ray_pos = ray_pos[mask]
-                ray_direc = ray_direc[mask]
-                ray_intensities = ray_intensities[mask]
-
-                del distance
-        return ray_pos, ray_direc, ray_intensities
-
-    def parallel_after_object(self, object_number, method='powell'):
+    def parallel_after_object(self, object_number, method='nelder'):
         desired_direction = np.array([[1, 0, 0]]).T
 
         def cost_function(params):
@@ -548,16 +431,15 @@ class OpticalSystem(object):
             rd = self.ray_direcs[-1]
             angle = np.arccos(np.dot(rd, desired_direction))
             return_value = np.abs(angle).sum()
-            print(params, return_value)
             return return_value
 
         minimizer = lmfit.Minimizer(cost_function, self.parameters)
         result = minimizer.minimize(method=method)
         self.parameters = result.params
-        self.parameters.pretty_print()
         self.propagate_to_object(object_number)
+        return result
 
-    def focus_at_object(self, object_number, method='powell'):
+    def focus_at_object(self, object_number, method='nelder'):
 
         def cost_function(params):
             self.parameters = params
@@ -568,14 +450,13 @@ class OpticalSystem(object):
             spotsize = (y.std()**2+z.std()**2)**0.5
             absorbed_eff, eff = self.efficiency()
             return_value = spotsize - absorbed_eff
-            print(params, return_value)
             return return_value
 
         minimizer = lmfit.Minimizer(cost_function, self.parameters)
         result = minimizer.minimize(method=method)
         self.parameters = result.params
-        self.parameters.pretty_print()
         self.propagate_to_object(object_number)
+        return result
 
     def efficiency(self):
         intensity = self.ray_intensities[-1]

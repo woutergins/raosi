@@ -1,0 +1,12 @@
+name: raosi
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.*
+  - numpy
+  - matplotlib
+  - scipy
+  - lmfit
+  - vtk
+  - mayavi
