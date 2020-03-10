@@ -4,7 +4,10 @@ logger = logging.getLogger(__name__)
 import numpy as np
 import copy
 
+__all__ = ['Bundle', 'RaySource']
+
 class Bundle(object):
+    """"Docstring for Bundle."""
     def __init__(self, positions=np.array([]), directions=np.array([]), intensity=np.array([]), wavelength=np.array([]), indices=None):
         self.positions = positions
         self.directions = directions

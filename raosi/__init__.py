@@ -1,8 +1,4 @@
-# from .system import *
-from .material import *
-
-from .opticalsystem import *
-from .rays import *
+from .core import *
 
 import logging
 
@@ -12,9 +8,7 @@ logger.addHandler(logging.NullHandler())
 
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 formatter = logging.Formatter('%(asctime)s:%(name)-12s:%(levelname)-8s:%(message)s')
-# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 
 logger.addHandler(ch)

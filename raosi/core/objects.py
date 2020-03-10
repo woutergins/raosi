@@ -6,8 +6,10 @@ import scipy.optimize as optimize
 from .material import Material
 from .rays import Bundle
 
-class OpticObject(object):
+__all__ = ['OpticObject', 'GlassObject', 'Lens', 'Window', 'Detector', 'Aperture']
 
+class OpticObject(object):
+    """docstring for OpticObject"""
     def __init__(self):
         self.stepping = 20
 
@@ -257,7 +259,7 @@ class Detector(OpticObject):
     def give_surface_1(self, array):
         return 0*array[:, 0]
 
-class Aperture(object):
+class Aperture(OpticObject):
     """docstring for Window"""
     def __init__(self, aperture):
         super(Aperture, self).__init__()

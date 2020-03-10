@@ -14,20 +14,9 @@ import vtk
 from .material import Material
 from .objects import Lens, Window, Detector
 
-# __all__ = ['GlassObject', 'Lens', 'Window', 'Detector', 'Aperture', 'OpticalSystem', 'RaySource']
+__all__ = ['OpticalSystem']
 
-class OpticalSystem(object):
-    """docstring for OpticalSystem"""
-    def __init__(self):
-        super(OpticalSystem, self).__init__()
-        self.parameters = lmfit.Parameters()
-        self.objects = []
-        self.ray_sources = []
-        self.stepping = 20
-        self.n = 1.0
-
-    def add_lens(self, lens_selection, position, material, reference=1):
-        parameters = {
+lens_parameters = {
         'ACL108U':   [collections.defaultdict(float, ), collections.defaultdict(float, Ap=10, R=4.185, K=-0.6027, A4=2.21e-4), 10, 8, 5.8],
         'ACL1210U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=12, R=5.492, K=-0.6230, A4=8.7e-5), 12, 10, 5.8],
         'ACL1512U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=15, R=6.277, K=-0.6139, A4=6.8E-5), 15, 13, 8.0],
@@ -93,53 +82,101 @@ class OpticalSystem(object):
                                                    R=1/2.538328764341557500E-002,
                                                    A4=2.11e-7,
                                                    A6=2.47e-11), 50, 48, 14],
-        'AFL50-60-S-U-mod': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=75,
-                                                   R=1/3.384438352455410000e-2,
-                                                   K=-6.6e-1,
-                                                   A4=5.01e-7,
-                                                   A6=1.24e-10,), 75, 73, 35],
-        'AFL50-80-S-U-mod': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=75,
-                                                   K=-0.67,
-                                                   R=1/2.538328764341557500E-002,
-                                                   A4=2.11e-7,
-                                                   A6=2.47e-11), 75, 73, 25],
         }
+
+class OpticalSystem(object):
+    """Representation of an optical system.
+
+    Class for representating a collection of lenses, windows and detectors. Includes methods
+    to add objects, add lightrays, propagate the rays and perform optimization."""
+    def __init__(self):
+        super(OpticalSystem, self).__init__()
+        self.parameters = lmfit.Parameters()
+        self.objects = []
+        self.ray_sources = []
+        self.stepping = 20
+        self.n = 1.0
+
+    def add_lens(self, lens_selection, position, material, reference=1):
+        """Adds a lens to the set of objects.
+
+        Parameters
+        ----------
+        lens_selection : str
+            String denoting which lens to add. See key values of 'lens_parameters' for a list.
+        position : float
+            Distance in mm along the optical axis along which the lens is located.
+        material : str
+            Name of the material the lens consists of.
+        reference : {1, 2}
+            Integer denoting which surface of the lens is used first."""
         if reference == 1:
-            params = [parameters[lens_selection][0], parameters[lens_selection][1]]
+            params = [lens_parameters[lens_selection][0], lens_parameters[lens_selection][1]]
         elif reference == 2:
-            params = [parameters[lens_selection][1], parameters[lens_selection][0]]
+            params = [lens_parameters[lens_selection][1], lens_parameters[lens_selection][0]]
         else:
             raise ValueError
-        aperture = parameters[lens_selection][2]
-        clear_aperture = parameters[lens_selection][3]
-        thickness = parameters[lens_selection][4]
+        aperture = lens_parameters[lens_selection][2]
+        clear_aperture = lens_parameters[lens_selection][3]
+        thickness = lens_parameters[lens_selection][4]
         lens_object = Lens(params, material, aperture, clear_aperture, thickness, position)
         self.parameters.add('Lens_'+str(len(self.objects)+1), value=position, brute_step=0.5)
         self.objects.append(['Lens', lens_object])
 
     def add_window(self, position, material, thickness, aperture, clear_aperture):
+        """Adds a window to the set of objects.
+
+        Parameters
+        ----------
+        position : float
+            Distance in mm along the optical axis along which the lens is located.
+        material : str
+            Name of the material the lens consists of.
+        thickness : float
+            Thickness of the window.
+        aperture : float
+            Diameter of the window.
+        clear_aperture : float
+            Diameter of the clear aperture of the window."""
         window_object = Window(material, aperture, clear_aperture, thickness, position)
         self.parameters.add('Window_'+str(len(self.objects)+1), value=position, brute_step=0.5)
         self.objects.append(['Window', window_object])
 
     def add_detector(self, position, aperture, slit=0):
+        """Adds a detector to the set of objects.
+
+        Parameters
+        ----------
+        position : float
+            Distance in mm along the optical axis along which the lens is located.
+        aperture : float
+            Diameter of the window.
+        slit : float, optional
+            Slit height along the z-direction."""
         detector_object = Detector(aperture, position, slit=slit)
         self.parameters.add('Detector_'+str(len(self.objects)+1), value=position, brute_step=0.5)
         self.objects.append(['Detector', detector_object])
 
     def add_bundle(self, bundle):
+        """Adds a bundle of rays to be propagated.
+
+        Parameters
+        ----------
+        bundle : Bundle
+            The Bundle to be added to the set of rays to be propagated."""
         self.original_bundle = bundle
 
     def clear_bundle(self):
+        """Removes all rays to be propagated."""
         self.original_bundle = None
         self.bundles = []
 
     def propagate_to_end(self):
+        """Propagate the rays to the end of the final object."""
         self.propagate_to_object(len(self.objects)-1)
 
     def propagate_to_object(self, object_number):
+        """Propagate the rays up to a certain object."""
         bundles = [self.original_bundle.clone()]
         for obj in self.objects:
             b = bundles[-1]
@@ -151,6 +188,18 @@ class OpticalSystem(object):
         self.bundles = bundles
 
     def parallel_after_object(self, object_number, method='nelder'):
+        """Create a parallel beam after a certain object.
+
+        Optimizes the location of the objects along the optical axis to
+        ensure a parallel beam. The total angle of the rays with the direction
+        of the axis is calculated and used in the minimization.
+
+        Parameters
+        ----------
+        object_number : float
+            Object after which the rays should be parallel.
+        method : str, optional
+            String denoting which minimization routine should be used."""
         desired_direction = np.array([[1, 0, 0]]).T
 
         def cost_function(params):
@@ -173,6 +222,18 @@ class OpticalSystem(object):
         return result
 
     def focus_at_object(self, object_number, method='nelder'):
+        """Create a focus after a certain object.
+
+        Optimizes the location of the objects along the optical axis to
+        ensure a focal spot. The spotsize in y and z is calculated and
+        used in the minimization.
+
+        Parameters
+        ----------
+        object_number : float
+            Object after which the rays should be parallel.
+        method : str, optional
+            String denoting which minimization routine should be used."""
 
         def cost_function(params):
             self.parameters = params
@@ -196,10 +257,33 @@ class OpticalSystem(object):
         return result
 
     def efficiency(self):
+        """Calculate the total intensity of the rays after propagation.
+
+        Returns
+        -------
+        float
+            Relative intensity (in percent) of the bundle at the end compared to the
+            beginning. Takes absorbance into account.
+        float
+            Relative intensity (in percent) of the bundle at the end compared to the
+            beginngin. Only takes the geometrical efficiency into account."""
         intensity = self.bundles[-1].intensity
-        return intensity.sum() / self.original_bundle.intensity.sum() * 100, intensity.shape[0] / self.original_bundle.intensity.sum() * 100
+        return intensity.sum() / self.original_bundle.intensity.sum() * 100, intensity.shape[0] / self.original_bundle.intensity.shape[0] * 100
 
     def show_distribution(self, ax=None):
+        """Plot the yz-distribution of the rays on the final plane.
+
+        Parameters
+        ----------
+        ax : matplotlib.Axis, optional
+            Axis on which to draw. If not given, will be generated.
+
+        Returns
+        -------
+        figure
+            Matplotlib figure in which the distribution is drawn.
+        axis
+            Axis instance in which the distribution is drawn."""
         detector = self.bundles[-1].positions
         detector_y, detector_z = detector[:, 1], detector[:, 2]
         intensity = self.bundles[-1].intensity
@@ -215,6 +299,25 @@ class OpticalSystem(object):
         return fig, ax
 
     def show_ray_paths(self, percentage=100, r_steps=30, theta_steps=40, colormap='viridis', camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 180}, filename=None, filename_kwargs={}):
+        """Plot the path of the rays and the objects in a Mayavi scene.
+
+        Parameters
+        ----------
+        percentage : float, optional
+            Percentage of rays to plot. Number of rays
+            is capped at 500.
+        r_steps : int, optional
+            Number of steps in the radial direction for drawing the surface of objects.
+        theta_steps : int, optional
+            Number of steps in the angular direction for drawing the surface of objects.
+        colormap : str, optional
+            Name of the colormap to be used to color the objects with the light intensity.
+        camera_kwargs : dict, optional
+            Dictionary of keywords to be passed to the Mayavi camera.
+        filename : str, optional
+            Name of a .stl file to be included in the scene.
+        filename_kwargs : dict, optional
+            Keywords to be used when drawing the .stl file."""
         try:
             if not len(self.rays) == len(self.objects):
                 self.propagate_to_end()
@@ -222,7 +325,7 @@ class OpticalSystem(object):
             self.propagate_to_end()
 
         final_rays = self.bundles[-1].positions.shape[0]
-        ray_number = min(int(final_rays / 100 * percentage), 1000)
+        ray_number = min(int(final_rays / 100 * percentage), 500)
         stepping = int(final_rays / ray_number)
         x = np.hstack([r.positions[::stepping, 0] for r in self.bundles])
         y = np.hstack([r.positions[::stepping, 1] for r in self.bundles])
