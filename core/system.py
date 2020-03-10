@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import numpy as np
 import scipy.optimize as optimize
 import collections
@@ -142,7 +145,6 @@ class OpticalSystem(object):
         self.parameters = lmfit.Parameters()
         self.objects = []
         self.ray_sources = []
-        self.object_number = 0
         self.stepping = 20
         self.n = 1.0
         self.wavelength = wavelength
@@ -237,19 +239,16 @@ class OpticalSystem(object):
         clear_aperture = parameters[lens_selection][3]
         thickness = parameters[lens_selection][4]
         lens_object = Lens(params, material, aperture, clear_aperture, thickness)
-        self.object_number += 1
-        self.parameters.add('Lens_'+str(self.object_number), value=position, brute_step=0.5)
+        self.parameters.add('Lens_'+str(len(self.objects)+1), value=position, brute_step=0.5)
         self.objects.append(['Lens', lens_object])
 
     def add_window(self, position, material, thickness, aperture, clear_aperture):
         window_object = Window(material, aperture, clear_aperture, thickness)
-        self.object_number += 1
         self.objects.append(['Window', window_object])
-        self.parameters.add('Window_'+str(self.object_number), value=position, brute_step=0.5)
+        self.parameters.add('Window_'+str(len(self.objects)+1), value=position, brute_step=0.5)
 
     def add_detector(self, position, aperture, slit=0):
         detector_object = Detector(aperture, slit=slit)
-        self.object_number += 1
         self.objects.append(['Detector', detector_object])
         self.parameters.add('Detector', value=position, brute_step=0.5)
 
@@ -279,12 +278,12 @@ class OpticalSystem(object):
                 self.objects[obj][1].set_refractive_index(self.wavelength)
 
     def propagate_to_end(self, ):
-        self.propagate_to_object(self.object_number-1)
+        self.propagate_to_object(len(self.objects)-1)
 
     def jacobian(self, x, ray_pos, ray_direc):
         return -np.eye(x.shape[0])
 
-    def propagate_to_object(self, object_number, debug=False):
+    def propagate_to_object(self, object_number):
         self.rays = [self.original_rays]
         self.ray_direcs = [self.original_ray_direcs]
         self.ray_intensities = [self.original_intensities]
@@ -326,6 +325,7 @@ class OpticalSystem(object):
                     r = (ray_pos[:, 1]**2+ray_pos[:, 2]**2)**0.5
 
                     mask = np.logical_and.reduce([r < self.objects[obj][1].clear_aperture/2, ~np.isnan(ray_direc[:, 0]), distance[:, 0] > 0])
+                    print(mask)
 
                     self.rays.append(ray_pos)
                     self.ray_direcs.append(ray_direc)
@@ -431,6 +431,7 @@ class OpticalSystem(object):
             rd = self.ray_direcs[-1]
             angle = np.arccos(np.dot(rd, desired_direction))
             return_value = np.abs(angle).sum()
+            logger.info('Making parallel, f()={:+0.3e}'.format(return_value))
             return return_value
 
         minimizer = lmfit.Minimizer(cost_function, self.parameters)
@@ -450,6 +451,7 @@ class OpticalSystem(object):
             spotsize = (y.std()**2+z.std()**2)**0.5
             absorbed_eff, eff = self.efficiency()
             return_value = spotsize - absorbed_eff
+            logger.info('Making focus, f()={:+0.3e}'.format(return_value))
             return return_value
 
         minimizer = lmfit.Minimizer(cost_function, self.parameters)
@@ -521,10 +523,10 @@ class OpticalSystem(object):
         surf_tubes = mlab.pipeline.surface(lines, colormap=colormap, line_width=1, opacity=0.4)
         surf_tubes.name = 'Rays'
 
-        # glyph = mlab.pipeline.glyph(lines, colormap=colormap)
-        # glyph.glyph.glyph.scale_mode = 'data_scaling_off'
-        # glyph.glyph.glyph.range = np.array([0., 1.])
-        # glyph.glyph.scale_mode = 'data_scaling_off'
+        glyph = mlab.pipeline.glyph(lines, colormap=colormap)
+        glyph.glyph.glyph.scale_mode = 'data_scaling_off'
+        glyph.glyph.glyph.range = np.array([0., 1.])
+        glyph.glyph.scale_mode = 'data_scaling_off'
 
         for k, obj in enumerate(self.objects):
             if obj[0].lower() in ['detector']:
