@@ -5,6 +5,7 @@ import numpy as np
 import scipy.optimize as optimize
 import collections
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import lmfit
 from mayavi import mlab
 from mayavi.filters.transform_data import TransformData
@@ -296,6 +297,19 @@ class OpticalSystem(object):
 
         grid_y, grid_z = int(detector_y.ptp()), int(detector_z.ptp())
         ax.hexbin(detector_y, detector_z, C=intensity, reduce_C_function=np.sum, bins='log', gridsize=(grid_y, grid_z))
+        for element in self.objects:
+            if element[0] == 'Detector':
+                radius = element[1].aperture / 2
+                patch = patches.Circle((0, 0), radius, linewidth=3, fill=False)
+                ax.add_patch(patch)
+                ax.set_xlim((-1.05* radius, 1.05*radius))
+                ax.set_ylim((-1.05* radius, 1.05*radius))
+                ax.set_aspect(1)
+                slit = element[1].slit
+                if slit > 0:
+                    x = np.cos(np.arcsin(slit/2/radius)) * radius
+                    ax.plot([-x, x], [slit/2, slit/2], color='k', lw=3)
+                    ax.plot([-x, x], [-slit/2, -slit/2], color='k', lw=3)
         return fig, ax
 
     def show_ray_paths(self, percentage=100, r_steps=30, theta_steps=40, colormap='viridis', camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 180}, filename=None, filename_kwargs={}):
