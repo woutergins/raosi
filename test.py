@@ -25,7 +25,7 @@ pmt_size = 47.5
 system = raosi.OpticalSystem()
 
 generator = raosi.RaySource(N, positions, distributed, laserbeamsize, wavelength)
-system.add_bundle(generator.generate_rays(distribution='uniform'))
+system.add_bundle(generator.generate_rays(distribution='pi'))
 
 lens_position = 37.5 # B270 lens
 
@@ -65,7 +65,7 @@ laserbeamsize = 0
 # generator = raosi.RaySource(N, positions, distributed, laserbeamsize, wavelength)
 # system.add_bundle(generator.generate_rays(distribution='uniform'))
 
-# system.show_ray_paths(percentage=100, camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 250})
-# mlab.show()
-system.show_distribution()
-plt.show()
+system.show_ray_paths(percentage=100, camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 250}, original=25)
+mlab.show()
+# system.show_distribution()
+# plt.show()
