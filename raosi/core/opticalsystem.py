@@ -460,6 +460,7 @@ class OpticalSystem(object):
             x, y, z = z, x, y
             s = kde(np.vstack([x, y, z]))
             s = np.log10(s)
+            s[np.isinf(s)] = np.nan
             vtk_source = mlab.pipeline.scalar_scatter(x, y, z, s)
             vtk_source.name = obj[0] + ' ' + str(k+1) + ' data'
             delaunay = mlab.pipeline.delaunay3d(vtk_source)
