@@ -5,6 +5,7 @@ import numpy as np
 import scipy.optimize as optimize
 import collections
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import lmfit
 from mayavi import mlab
 from mayavi.filters.transform_data import TransformData
@@ -296,9 +297,22 @@ class OpticalSystem(object):
 
         grid_y, grid_z = int(detector_y.ptp()), int(detector_z.ptp())
         ax.hexbin(detector_y, detector_z, C=intensity, reduce_C_function=np.sum, bins='log', gridsize=(grid_y, grid_z))
+        for element in self.objects:
+            if element[0] == 'Detector':
+                radius = element[1].aperture / 2
+                patch = patches.Circle((0, 0), radius, linewidth=3, fill=False)
+                ax.add_patch(patch)
+                ax.set_xlim((-1.05* radius, 1.05*radius))
+                ax.set_ylim((-1.05* radius, 1.05*radius))
+                ax.set_aspect(1)
+                slit = element[1].slit
+                if slit > 0:
+                    x = np.cos(np.arcsin(slit/2/radius)) * radius
+                    ax.plot([-x, x], [slit/2, slit/2], color='k', lw=3)
+                    ax.plot([-x, x], [-slit/2, -slit/2], color='k', lw=3)
         return fig, ax
 
-    def show_ray_paths(self, percentage=100, r_steps=30, theta_steps=40, colormap='viridis', camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 180}, filename=None, filename_kwargs={}):
+    def show_ray_paths(self, percentage=100, r_steps=30, theta_steps=40, colormap='viridis', camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 180}, filename=None, filename_kwargs={}, original=10):
         """Plot the path of the rays and the objects in a Mayavi scene.
 
         Parameters
@@ -317,7 +331,11 @@ class OpticalSystem(object):
         filename : str, optional
             Name of a .stl file to be included in the scene.
         filename_kwargs : dict, optional
-            Keywords to be used when drawing the .stl file."""
+            Keywords to be used when drawing the .stl file.
+        original : float, optional
+            If this is larger than 0, the original rays are propagated this distance and
+            then drawn, connected to their original position, in order to visualise
+            the initial distribution."""
         try:
             if not len(self.rays) == len(self.objects):
                 self.propagate_to_end()
@@ -333,7 +351,7 @@ class OpticalSystem(object):
         intensity = np.hstack([r.intensity[::stepping] for r in self.bundles])
         indices = np.hstack([r.indices[::stepping] for r in self.bundles])
 
-        for v in indices:
+        for v in np.unique(indices):
             locations = np.where(indices==v)[0]
             connect = np.vstack([locations[:-1], locations[1:]]).T
             try:
@@ -345,7 +363,7 @@ class OpticalSystem(object):
         vtk.vtkObject.GlobalWarningDisplayOff()
         mlab.clf()
 
-        s = x
+        # s = x
         from scipy import stats
         kde = stats.gaussian_kde(np.vstack([x, y, z]), weights=intensity)
         s = kde(np.vstack([x, y, z]))
@@ -367,6 +385,49 @@ class OpticalSystem(object):
         glyph.glyph.glyph.scale_mode = 'data_scaling_off'
         glyph.glyph.glyph.range = np.array([0., 1.])
         glyph.glyph.scale_mode = 'data_scaling_off'
+
+        if original:
+            original_rays = self.original_bundle.positions.shape[0]
+            ray_numbers = min(int(original_rays / 100 * percentage), 500)
+            steps = int(original_rays / ray_numbers)
+
+            pos = self.original_bundle.positions[::steps]
+            direc = self.original_bundle.directions[::steps]
+            ind = self.original_bundle.indices[::steps]
+            new_pos = pos + original*direc
+
+            x = np.hstack([r[:, 0] for r in [pos, new_pos]])
+            y = np.hstack([r[:, 1] for r in [pos, new_pos]])
+            z = np.hstack([r[:, 2] for r in [pos, new_pos]])
+            intensity = np.ones(z.shape)
+            indices = np.hstack([ind, ind])
+
+            for v in ind:
+                locations = np.where(indices==v)[0]
+                connect = np.vstack([locations[:-1], locations[1:]]).T
+                try:
+                    connections_orig = np.vstack([connections_orig, connect])
+                except UnboundLocalError:
+                    connections_orig = np.array(connect)
+
+            s = kde(np.vstack([x, y, z]))
+            # s = np.log10(s)
+            # vmin = s.min()
+            # vmax = s.max()
+            src = mlab.pipeline.scalar_scatter(x, y, z, s, vmin=vmin, vmax=vmax)
+
+            src.mlab_source.dataset.lines = connections_orig
+            src.name = 'Original rays'
+            src.update()
+
+            lines = mlab.pipeline.tube(src, tube_radius=0.25, tube_sides=4)
+            surf_tubes = mlab.pipeline.surface(lines, colormap=colormap, line_width=1, opacity=0.4)
+            surf_tubes.name = 'Rays2'
+
+            glyph = mlab.pipeline.glyph(lines, colormap=colormap)
+            glyph.glyph.glyph.scale_mode = 'data_scaling_off'
+            glyph.glyph.glyph.range = np.array([0., 1.])
+            glyph.glyph.scale_mode = 'data_scaling_off'
 
         for k, obj in enumerate(self.objects):
             if obj[0].lower() in ['detector']:
@@ -399,6 +460,7 @@ class OpticalSystem(object):
             x, y, z = z, x, y
             s = kde(np.vstack([x, y, z]))
             s = np.log10(s)
+            s[np.isinf(s)] = np.nan
             vtk_source = mlab.pipeline.scalar_scatter(x, y, z, s)
             vtk_source.name = obj[0] + ' ' + str(k+1) + ' data'
             delaunay = mlab.pipeline.delaunay3d(vtk_source)

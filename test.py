@@ -25,7 +25,7 @@ pmt_size = 47.5
 system = raosi.OpticalSystem()
 
 generator = raosi.RaySource(N, positions, distributed, laserbeamsize, wavelength)
-system.add_bundle(generator.generate_rays(distribution='uniform'))
+system.add_bundle(generator.generate_rays(distribution='pi'))
 
 lens_position = 37.5 # B270 lens
 
@@ -48,7 +48,7 @@ system.parameters['Lens_2'].max = window_location - thickness2
 system.add_window(window_location, window_material, window_thickness, window_aperture, window_aperture)
 system.parameters['Window_3'].vary = False
 
-system.add_detector(window_location+window_thickness+pmt_distance, pmt_size)
+system.add_detector(window_location+window_thickness+pmt_distance, pmt_size, slit=6)
 system.parameters['Detector_4'].vary = False
 
 r = system.focus_at_object(4, method='brute')
@@ -65,7 +65,7 @@ laserbeamsize = 0
 # generator = raosi.RaySource(N, positions, distributed, laserbeamsize, wavelength)
 # system.add_bundle(generator.generate_rays(distribution='uniform'))
 
-system.show_ray_paths(percentage=100, camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 250})
+system.show_ray_paths(percentage=100, camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 250}, original=25)
 mlab.show()
 # system.show_distribution()
 # plt.show()
