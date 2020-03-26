@@ -204,11 +204,7 @@ class OpticalSystem(object):
         desired_direction = np.array([[1, 0, 0]]).T
 
         def cost_function(params):
-            self.parameters = params
-            for p in self.parameters.keys():
-                l = self.parameters[p].value
-                obj = int(p.split('_')[1])-1
-                self.objects[obj][1].location = l
+            self.set_params(params)
             self.propagate_to_object(object_number)
             rd = self.bundles[-1].directions
             angle = np.arccos(np.dot(rd, desired_direction))
@@ -237,11 +233,7 @@ class OpticalSystem(object):
             String denoting which minimization routine should be used."""
 
         def cost_function(params):
-            self.parameters = params
-            for p in self.parameters.keys():
-                l = self.parameters[p].value
-                obj = int(p.split('_')[1])-1
-                self.objects[obj][1].location = l
+            self.set_params(params)
             self.propagate_to_object(object_number)
             positions = self.bundles[-1].positions
             y = positions[:, 1]
@@ -256,6 +248,20 @@ class OpticalSystem(object):
         minimizer = lmfit.Minimizer(cost_function, self.parameters)
         result = minimizer.minimize(method=method)
         return result
+
+    def set_parameter(self, name, value):
+        self.parameters[name].value = value
+        for p in self.parameters.keys():
+            l = self.parameters[p].value
+            obj = int(p.split('_')[1])-1
+            self.objects[obj][1].location = l
+
+    def set_params(self, params):
+        self.parameters = params
+        for p in self.parameters.keys():
+            l = self.parameters[p].value
+            obj = int(p.split('_')[1])-1
+            self.objects[obj][1].location = l
 
     def efficiency(self):
         """Calculate the total intensity of the rays after propagation.
