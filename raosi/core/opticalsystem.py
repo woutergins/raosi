@@ -318,6 +318,35 @@ class OpticalSystem(object):
                     ax.plot([-x, x], [-slit/2, -slit/2], color='k', lw=3)
         return fig, ax
 
+    def plot_efficiency(self, parameter_name, ax=None, dx=0.5):
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+        else:
+            fig = ax.figure
+        if parameter_name in self.parameters.keys():
+            value = self.parameters[parameter_name].value
+            parameter_range = [self.parameters[parameter_name].min, self.parameters[parameter_name].max]
+            if parameter_range[0] in [None, np.inf, -np.inf]:
+                parameter_range[0] = value * 0.9
+            if parameter_range[1] in [None, np.inf, -np.inf]:
+                parameter_range[1] = value * 1.1 + dx
+            parameter_range = np.arange(*parameter_range, dx)
+            efficiency = np.zeros(parameter_range.shape)
+            absorbed_efficiency = np.zeros(parameter_range.shape)
+            for i, v in enumerate(parameter_range):
+                self.set_parameter(parameter_name, v)
+                self.propagate_to_end()
+                e1, e2 = self.efficiency()
+                absorbed_efficiency[i] = e1
+                efficiency[i] = e2
+            ax.plot(parameter_range, absorbed_efficiency, label='Efficiency with absorption')
+            ax.plot(parameter_range, efficiency, label='Geometric efficiency')
+            ax.set_ylabel('Efficiency [%]')
+            ax.legend(loc=0)
+            self.set_parameter(parameter_name, value)
+            self.propagate_to_end()
+
     def show_ray_paths(self, percentage=100, r_steps=30, theta_steps=40, colormap='viridis', camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 180}, filename=None, filename_kwargs={}, original=10):
         """Plot the path of the rays and the objects in a Mayavi scene.
 

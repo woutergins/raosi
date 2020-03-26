@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import raosi
 
 np.random.seed(1)
-lens_material = 'b270'
+lens_material = 'silica'
 window_material = 'silica'
 positions = [0]
 
@@ -31,8 +31,8 @@ lens_position = 37.5 # B270 lens
 
 # Doublet of lenses
 system.add_lens(lens_selection, lens_position, lens_material, reference=1)
-system.parameters['Lens_1'].min = 30
-system.parameters['Lens_1'].max = 41
+system.parameters['Lens_1'].min = 40
+system.parameters['Lens_1'].max = 50
 
 thickness = system.objects[0][1].thickness
 r = system.parallel_after_object(0, method='brute')
@@ -61,11 +61,13 @@ positions = [-aperture/2, aperture/2]
 distributed = True
 laserbeamsize = 0
 
-# system.clear_bundle()
-# generator = raosi.RaySource(N, positions, distributed, laserbeamsize, wavelength)
-# system.add_bundle(generator.generate_rays(distribution='uniform'))
+system.clear_bundle()
+generator = raosi.RaySource(N, positions, distributed, laserbeamsize, wavelength)
+system.add_bundle(generator.generate_rays(distribution='uniform'))
+system.plot_efficiency('Lens_1')
+plt.show()
 
-system.show_ray_paths(percentage=100, camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 250}, original=25)
-mlab.show()
+# system.show_ray_paths(percentage=100, camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 250}, original=25)
+# mlab.show()
 # system.show_distribution()
 # plt.show()
