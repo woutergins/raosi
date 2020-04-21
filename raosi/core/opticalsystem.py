@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 import numpy as np
@@ -15,81 +16,205 @@ import vtk
 from .material import Material
 from .objects import Lens, Window, Detector
 
-__all__ = ['OpticalSystem']
+__all__ = ["OpticalSystem"]
 
 lens_parameters = {
-        'ACL108U':   [collections.defaultdict(float, ), collections.defaultdict(float, Ap=10, R=4.185, K=-0.6027, A4=2.21e-4), 10, 8, 5.8],
-        'ACL1210U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=12, R=5.492, K=-0.6230, A4=8.7e-5), 12, 10, 5.8],
-        'ACL1512U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=15, R=6.277, K=-0.6139, A4=6.8E-5), 15, 13, 8.0],
-        'ACL1815U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=18, R=7.818, K=-1.817, A4=2.93E-4), 18, 16, 8.2],
-        'ACL2018U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=20, R=9.415, K=-0.6392, A4=1.7E-5), 20, 18, 8.0],
-        'ACL2520U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=25, R=10.462, K=-0.6265, A4=1.5E-5), 25, 23, 12.0],
-        'ACL3026U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=30, R=13.551, K=-0.6301, A4=5.5E-6), 30, 28, 11.9],
-        'ACL5040U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=50, R=20.923, K=-0.6405, A4=2.0E-6), 50, 48, 21.0],
-        'ACL7560U':  [collections.defaultdict(float, ), collections.defaultdict(float, Ap=75, R=31.384, K=-1.911, A4=5.0E-6), 75, 73, 30.0],
-        'A100-100LPX-S-U': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=100,
-                                                   R=1/0.01956181533646322378716744913928,
-                                                   K=-1.023,
-                                                   A4=4.4278927e-07,
-                                                   A6=2.8715019e-11,
-                                                   A8=1.9201195e-15,
-                                                   A10=9.2124803e-20,
-                                                   A12=-1.6052264e-24,
-                                                   A14=-5.8638374e-28,
-                                                   A16 = -3.0821914e-31,), 100, 98, 36.0],
-        'AFL50-60-S-U': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=50,
-                                                   R=1/3.384438352455410000e-2,
-                                                   K=-6.6e-1,
-                                                   A4=5.01e-7,
-                                                   A6=1.24e-10,), 50, 48, 17.5],
-        'LA4464-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=27.6), 2*25.4, 2*25.4-2, 19.8],
-        'LA4078-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=34.5), 2*25.4, 2*25.4-2, 14.2],
-        'LA4464-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=27.6), 2*25.4, 2*25.4-2, 19.8],
-        'LA4545-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=46), 2*25.4, 2*25.4-2, 10.7],
-        'LA4904-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=69.0), 2*25.4, 2*25.4-2, 7.8],
-        'LA4984-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=92.0), 2*25.4, 2*25.4-2, 6.6],
-        'LA4538-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=115.0), 2*25.4, 2*25.4-2, 5.8],
-        'LA4855-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=138.0), 2*25.4, 2*25.4-2, 5.4],
-        'LA4782-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=230.0), 2*25.4, 2*25.4-2, 4.4],
-        'LA4745-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=345.1), 2*25.4, 2*25.4-2, 3.9],
-        'LA4337-UV': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=2*25.4,
-                                                   R=460.1), 2*25.4, 2*25.4-2, 3.7],
-        'AFL50-80-S-U': [collections.defaultdict(float, ), collections.defaultdict(float,
-                                                   Ap=50,
-                                                   K=-0.67,
-                                                   R=1/2.538328764341557500E-002,
-                                                   A4=2.11e-7,
-                                                   A6=2.47e-11), 50, 48, 14],
-        }
+    "ACL108U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=10, R=4.185, K=-0.6027, A4=2.21e-4),
+        10,
+        8,
+        5.8,
+    ],
+    "ACL1210U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=12, R=5.492, K=-0.6230, A4=8.7e-5),
+        12,
+        10,
+        5.8,
+    ],
+    "ACL1512U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=15, R=6.277, K=-0.6139, A4=6.8e-5),
+        15,
+        13,
+        8.0,
+    ],
+    "ACL1815U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=18, R=7.818, K=-1.817, A4=2.93e-4),
+        18,
+        16,
+        8.2,
+    ],
+    "ACL2018U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=20, R=9.415, K=-0.6392, A4=1.7e-5),
+        20,
+        18,
+        8.0,
+    ],
+    "ACL2520U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=25, R=10.462, K=-0.6265, A4=1.5e-5),
+        25,
+        23,
+        12.0,
+    ],
+    "ACL3026U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=30, R=13.551, K=-0.6301, A4=5.5e-6),
+        30,
+        28,
+        11.9,
+    ],
+    "ACL5040U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=50, R=20.923, K=-0.6405, A4=2.0e-6),
+        50,
+        48,
+        21.0,
+    ],
+    "ACL7560U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=75, R=31.384, K=-1.911, A4=5.0e-6),
+        75,
+        73,
+        30.0,
+    ],
+    "A100-100LPX-S-U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(
+            float,
+            Ap=100,
+            R=1 / 0.01956181533646322378716744913928,
+            K=-1.023,
+            A4=4.4278927e-07,
+            A6=2.8715019e-11,
+            A8=1.9201195e-15,
+            A10=9.2124803e-20,
+            A12=-1.6052264e-24,
+            A14=-5.8638374e-28,
+            A16=-3.0821914e-31,
+        ),
+        100,
+        98,
+        36.0,
+    ],
+    "AFL50-60-S-U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(
+            float,
+            Ap=50,
+            R=1 / 3.384438352455410000e-2,
+            K=-6.6e-1,
+            A4=5.01e-7,
+            A6=1.24e-10,
+        ),
+        50,
+        48,
+        17.5,
+    ],
+    "LA4464-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=27.6),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        19.8,
+    ],
+    "LA4078-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=34.5),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        14.2,
+    ],
+    "LA4464-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=27.6),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        19.8,
+    ],
+    "LA4545-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=46),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        10.7,
+    ],
+    "LA4904-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=69.0),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        7.8,
+    ],
+    "LA4984-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=92.0),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        6.6,
+    ],
+    "LA4538-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=115.0),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        5.8,
+    ],
+    "LA4855-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=138.0),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        5.4,
+    ],
+    "LA4782-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=230.0),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        4.4,
+    ],
+    "LA4745-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=345.1),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        3.9,
+    ],
+    "LA4337-UV": [
+        collections.defaultdict(float,),
+        collections.defaultdict(float, Ap=2 * 25.4, R=460.1),
+        2 * 25.4,
+        2 * 25.4 - 2,
+        3.7,
+    ],
+    "AFL50-80-S-U": [
+        collections.defaultdict(float,),
+        collections.defaultdict(
+            float,
+            Ap=50,
+            K=-0.67,
+            R=1 / 2.538328764341557500e-002,
+            A4=2.11e-7,
+            A6=2.47e-11,
+        ),
+        50,
+        48,
+        14,
+    ],
+}
+
 
 class OpticalSystem(object):
     """Representation of an optical system.
 
     Class for representating a collection of lenses, windows and detectors. Includes methods
     to add objects, add lightrays, propagate the rays and perform optimization."""
+
     def __init__(self):
         super(OpticalSystem, self).__init__()
         self.parameters = lmfit.Parameters()
@@ -112,17 +237,27 @@ class OpticalSystem(object):
         reference : {1, 2}
             Integer denoting which surface of the lens is used first."""
         if reference == 1:
-            params = [lens_parameters[lens_selection][0], lens_parameters[lens_selection][1]]
+            params = [
+                lens_parameters[lens_selection][0],
+                lens_parameters[lens_selection][1],
+            ]
         elif reference == 2:
-            params = [lens_parameters[lens_selection][1], lens_parameters[lens_selection][0]]
+            params = [
+                lens_parameters[lens_selection][1],
+                lens_parameters[lens_selection][0],
+            ]
         else:
             raise ValueError
         aperture = lens_parameters[lens_selection][2]
         clear_aperture = lens_parameters[lens_selection][3]
         thickness = lens_parameters[lens_selection][4]
-        lens_object = Lens(params, material, aperture, clear_aperture, thickness, position)
-        self.parameters.add('Lens_'+str(len(self.objects)+1), value=position, brute_step=0.5)
-        self.objects.append(['Lens', lens_object])
+        lens_object = Lens(
+            params, material, aperture, clear_aperture, thickness, position
+        )
+        self.parameters.add(
+            "Lens_" + str(len(self.objects) + 1), value=position, brute_step=0.5
+        )
+        self.objects.append(["Lens", lens_object])
 
     def add_window(self, position, material, thickness, aperture, clear_aperture):
         """Adds a window to the set of objects.
@@ -140,8 +275,10 @@ class OpticalSystem(object):
         clear_aperture : float
             Diameter of the clear aperture of the window."""
         window_object = Window(material, aperture, clear_aperture, thickness, position)
-        self.parameters.add('Window_'+str(len(self.objects)+1), value=position, brute_step=0.5)
-        self.objects.append(['Window', window_object])
+        self.parameters.add(
+            "Window_" + str(len(self.objects) + 1), value=position, brute_step=0.5
+        )
+        self.objects.append(["Window", window_object])
 
     def add_detector(self, position, aperture, slit=0):
         """Adds a detector to the set of objects.
@@ -155,8 +292,10 @@ class OpticalSystem(object):
         slit : float, optional
             Slit height along the z-direction."""
         detector_object = Detector(aperture, position, slit=slit)
-        self.parameters.add('Detector_'+str(len(self.objects)+1), value=position, brute_step=0.5)
-        self.objects.append(['Detector', detector_object])
+        self.parameters.add(
+            "Detector_" + str(len(self.objects) + 1), value=position, brute_step=0.5
+        )
+        self.objects.append(["Detector", detector_object])
 
     def add_bundle(self, bundle):
         """Adds a bundle of rays to be propagated.
@@ -174,21 +313,21 @@ class OpticalSystem(object):
 
     def propagate_to_end(self):
         """Propagate the rays to the end of the final object."""
-        self.propagate_to_object(len(self.objects)-1)
+        self.propagate_to_object(len(self.objects) - 1)
 
     def propagate_to_object(self, object_number):
         """Propagate the rays up to a certain object."""
         bundles = [self.original_bundle.clone()]
         for obj in self.objects:
             b = bundles[-1]
-            logger.debug('Transferring rays to object {}.'.format(obj[0]))
+            logger.debug("Transferring rays to object {}.".format(obj[0]))
             return_bundles = obj[1].transfer_rays(b, self.n, self.n)
             bundles.extend(return_bundles)
             for bundle in bundles[:-1]:
                 bundle.intersect(bundles[-1])
         self.bundles = bundles
 
-    def parallel_after_object(self, object_number, method='nelder'):
+    def parallel_after_object(self, object_number, method="nelder"):
         """Create a parallel beam after a certain object.
 
         Optimizes the location of the objects along the optical axis to
@@ -211,14 +350,14 @@ class OpticalSystem(object):
             return_value = np.abs(angle).sum()
             if np.isnan(return_value):
                 return_value = 1e99
-            logger.info('Making parallel, f()={:+0.3e}'.format(return_value))
+            logger.info("Making parallel, f()={:+0.3e}".format(return_value))
             return return_value
 
         minimizer = lmfit.Minimizer(cost_function, self.parameters)
         result = minimizer.minimize(method=method)
         return result
 
-    def focus_at_object(self, object_number, method='nelder'):
+    def focus_at_object(self, object_number, method="nelder"):
         """Create a focus after a certain object.
 
         Optimizes the location of the objects along the optical axis to
@@ -238,11 +377,11 @@ class OpticalSystem(object):
             positions = self.bundles[-1].positions
             y = positions[:, 1]
             z = positions[:, 2]
-            spotsize = (y.std()**2+z.std()**2)**0.5
+            spotsize = (y.std() ** 2 + z.std() ** 2) ** 0.5
             return_value = spotsize
             if np.isnan(return_value):
                 return_value = 1e99
-            logger.info('Making focus, f()={:+0.3e}'.format(return_value))
+            logger.info("Making focus, f()={:+0.3e}".format(return_value))
             return return_value
 
         minimizer = lmfit.Minimizer(cost_function, self.parameters)
@@ -253,14 +392,14 @@ class OpticalSystem(object):
         self.parameters[name].value = value
         for p in self.parameters.keys():
             l = self.parameters[p].value
-            obj = int(p.split('_')[1])-1
+            obj = int(p.split("_")[1]) - 1
             self.objects[obj][1].location = l
 
     def set_params(self, params):
         self.parameters = params
         for p in self.parameters.keys():
             l = self.parameters[p].value
-            obj = int(p.split('_')[1])-1
+            obj = int(p.split("_")[1]) - 1
             self.objects[obj][1].location = l
 
     def efficiency(self):
@@ -275,7 +414,10 @@ class OpticalSystem(object):
             Relative intensity (in percent) of the bundle at the end compared to the
             beginngin. Only takes the geometrical efficiency into account."""
         intensity = self.bundles[-1].intensity
-        return intensity.sum() / self.original_bundle.intensity.sum() * 100, intensity.shape[0] / self.original_bundle.intensity.shape[0] * 100
+        return (
+            intensity.sum() / self.original_bundle.intensity.sum() * 100,
+            intensity.shape[0] / self.original_bundle.intensity.shape[0] * 100,
+        )
 
     def show_distribution(self, ax=None):
         """Plot the yz-distribution of the rays on the final plane.
@@ -302,20 +444,27 @@ class OpticalSystem(object):
             fig = ax.figure
 
         grid_y, grid_z = int(detector_y.ptp()), int(detector_z.ptp())
-        ax.hexbin(detector_y, detector_z, C=intensity, reduce_C_function=np.sum, bins='log', gridsize=(grid_y, grid_z))
+        ax.hexbin(
+            detector_y,
+            detector_z,
+            C=intensity,
+            reduce_C_function=np.sum,
+            bins="log",
+            gridsize=(grid_y, grid_z),
+        )
         for element in self.objects:
-            if element[0] == 'Detector':
+            if element[0] == "Detector":
                 radius = element[1].aperture / 2
                 patch = patches.Circle((0, 0), radius, linewidth=3, fill=False)
                 ax.add_patch(patch)
-                ax.set_xlim((-1.05* radius, 1.05*radius))
-                ax.set_ylim((-1.05* radius, 1.05*radius))
+                ax.set_xlim((-1.05 * radius, 1.05 * radius))
+                ax.set_ylim((-1.05 * radius, 1.05 * radius))
                 ax.set_aspect(1)
                 slit = element[1].slit
                 if slit > 0:
-                    x = np.cos(np.arcsin(slit/2/radius)) * radius
-                    ax.plot([-x, x], [slit/2, slit/2], color='k', lw=3)
-                    ax.plot([-x, x], [-slit/2, -slit/2], color='k', lw=3)
+                    x = np.cos(np.arcsin(slit / 2 / radius)) * radius
+                    ax.plot([-x, x], [slit / 2, slit / 2], color="k", lw=3)
+                    ax.plot([-x, x], [-slit / 2, -slit / 2], color="k", lw=3)
         return fig, ax
 
     def plot_efficiency(self, parameter_name, ax=None, dx=0.5):
@@ -326,7 +475,10 @@ class OpticalSystem(object):
             fig = ax.figure
         if parameter_name in self.parameters.keys():
             value = self.parameters[parameter_name].value
-            parameter_range = [self.parameters[parameter_name].min, self.parameters[parameter_name].max]
+            parameter_range = [
+                self.parameters[parameter_name].min,
+                self.parameters[parameter_name].max,
+            ]
             if parameter_range[0] in [None, np.inf, -np.inf]:
                 parameter_range[0] = value * 0.9
             if parameter_range[1] in [None, np.inf, -np.inf]:
@@ -340,14 +492,26 @@ class OpticalSystem(object):
                 e1, e2 = self.efficiency()
                 absorbed_efficiency[i] = e1
                 efficiency[i] = e2
-            ax.plot(parameter_range, absorbed_efficiency, label='Efficiency with absorption')
-            ax.plot(parameter_range, efficiency, label='Geometric efficiency')
-            ax.set_ylabel('Efficiency [%]')
+            ax.plot(
+                parameter_range, absorbed_efficiency, label="Efficiency with absorption"
+            )
+            ax.plot(parameter_range, efficiency, label="Geometric efficiency")
+            ax.set_ylabel("Efficiency [%]")
             ax.legend(loc=0)
             self.set_parameter(parameter_name, value)
             self.propagate_to_end()
 
-    def show_ray_paths(self, percentage=100, r_steps=30, theta_steps=40, colormap='viridis', camera_kwargs={'azimuth': 0, 'elevation': 0, 'distance': 180}, filename=None, filename_kwargs={}, original=10):
+    def show_ray_paths(
+        self,
+        percentage=100,
+        r_steps=30,
+        theta_steps=40,
+        colormap="viridis",
+        camera_kwargs={"azimuth": 0, "elevation": 0, "distance": 180},
+        filename=None,
+        filename_kwargs={},
+        original=10,
+    ):
         """Plot the path of the rays and the objects in a Mayavi scene.
 
         Parameters
@@ -387,7 +551,7 @@ class OpticalSystem(object):
         indices = np.hstack([r.indices[::stepping] for r in self.bundles])
 
         for v in np.unique(indices):
-            locations = np.where(indices==v)[0]
+            locations = np.where(indices == v)[0]
             connect = np.vstack([locations[:-1], locations[1:]]).T
             try:
                 connections = np.vstack([connections, connect])
@@ -400,6 +564,7 @@ class OpticalSystem(object):
 
         # s = x
         from scipy import stats
+
         kde = stats.gaussian_kde(np.vstack([x, y, z]), weights=intensity)
         s = kde(np.vstack([x, y, z]))
         s = np.log10(s)
@@ -409,17 +574,19 @@ class OpticalSystem(object):
         src = mlab.pipeline.scalar_scatter(x, y, z, s, vmin=vmin, vmax=vmax)
 
         src.mlab_source.dataset.lines = connections
-        src.name = 'Ray data'
+        src.name = "Ray data"
         src.update()
 
         lines = mlab.pipeline.tube(src, tube_radius=0.25, tube_sides=4)
-        surf_tubes = mlab.pipeline.surface(lines, colormap=colormap, line_width=1, opacity=0.4)
-        surf_tubes.name = 'Rays'
+        surf_tubes = mlab.pipeline.surface(
+            lines, colormap=colormap, line_width=1, opacity=0.4
+        )
+        surf_tubes.name = "Rays"
 
         glyph = mlab.pipeline.glyph(lines, colormap=colormap)
-        glyph.glyph.glyph.scale_mode = 'data_scaling_off'
-        glyph.glyph.glyph.range = np.array([0., 1.])
-        glyph.glyph.scale_mode = 'data_scaling_off'
+        glyph.glyph.glyph.scale_mode = "data_scaling_off"
+        glyph.glyph.glyph.range = np.array([0.0, 1.0])
+        glyph.glyph.scale_mode = "data_scaling_off"
 
         if original:
             original_rays = self.original_bundle.positions.shape[0]
@@ -429,7 +596,7 @@ class OpticalSystem(object):
             pos = self.original_bundle.positions[::steps]
             direc = self.original_bundle.directions[::steps]
             ind = self.original_bundle.indices[::steps]
-            new_pos = pos + original*direc
+            new_pos = pos + original * direc
 
             x = np.hstack([r[:, 0] for r in [pos, new_pos]])
             y = np.hstack([r[:, 1] for r in [pos, new_pos]])
@@ -438,7 +605,7 @@ class OpticalSystem(object):
             indices = np.hstack([ind, ind])
 
             for v in ind:
-                locations = np.where(indices==v)[0]
+                locations = np.where(indices == v)[0]
                 connect = np.vstack([locations[:-1], locations[1:]]).T
                 try:
                     connections_orig = np.vstack([connections_orig, connect])
@@ -452,38 +619,40 @@ class OpticalSystem(object):
             src = mlab.pipeline.scalar_scatter(x, y, z, s, vmin=vmin, vmax=vmax)
 
             src.mlab_source.dataset.lines = connections_orig
-            src.name = 'Original rays'
+            src.name = "Original rays"
             src.update()
 
             lines = mlab.pipeline.tube(src, tube_radius=0.25, tube_sides=4)
-            surf_tubes = mlab.pipeline.surface(lines, colormap=colormap, line_width=1, opacity=0.4)
-            surf_tubes.name = 'Rays2'
+            surf_tubes = mlab.pipeline.surface(
+                lines, colormap=colormap, line_width=1, opacity=0.4
+            )
+            surf_tubes.name = "Rays2"
 
             glyph = mlab.pipeline.glyph(lines, colormap=colormap)
-            glyph.glyph.glyph.scale_mode = 'data_scaling_off'
-            glyph.glyph.glyph.range = np.array([0., 1.])
-            glyph.glyph.scale_mode = 'data_scaling_off'
+            glyph.glyph.glyph.scale_mode = "data_scaling_off"
+            glyph.glyph.glyph.range = np.array([0.0, 1.0])
+            glyph.glyph.scale_mode = "data_scaling_off"
 
         for k, obj in enumerate(self.objects):
-            if obj[0].lower() in ['detector']:
+            if obj[0].lower() in ["detector"]:
                 continue
             try:
-                l = self.parameters[self.objects[k][0]+'_'+str(k+1)].value
+                l = self.parameters[self.objects[k][0] + "_" + str(k + 1)].value
             except KeyError:
                 l = self.parameters[self.objects[k][0]].value
             r = np.linspace(0, obj[1].aperture / 2, r_steps)
             r = r[0:]
-            theta = np.linspace(0, 2*np.pi, theta_steps)
+            theta = np.linspace(0, 2 * np.pi, theta_steps)
             r, theta = np.meshgrid(r, theta)
-            x = (r*np.cos(theta)).flatten()
-            y = (r*np.sin(theta)).flatten()
+            x = (r * np.cos(theta)).flatten()
+            y = (r * np.sin(theta)).flatten()
             x = np.hstack([0, x])
             y = np.hstack([0, y])
             z = np.zeros(x.shape)
             for i, (X, Y) in enumerate(zip(x, y)):
                 z[i] = obj[1].give_surface_1(np.vstack([X, Y]).T)
             z = z + l
-            if obj[0].lower() in ['lens', 'window']:
+            if obj[0].lower() in ["lens", "window"]:
                 z2 = np.zeros(x.shape)
                 for i, (X, Y) in enumerate(zip(x, y)):
                     z2[i] = obj[1].give_surface_2(np.vstack([X, Y]).T)
@@ -497,13 +666,20 @@ class OpticalSystem(object):
             s = np.log10(s)
             s[np.isinf(s)] = np.nan
             vtk_source = mlab.pipeline.scalar_scatter(x, y, z, s)
-            vtk_source.name = obj[0] + ' ' + str(k+1) + ' data'
+            vtk_source.name = obj[0] + " " + str(k + 1) + " data"
             delaunay = mlab.pipeline.delaunay3d(vtk_source)
-            s = mlab.pipeline.surface(delaunay, opacity=0.8, colormap=colormap, vmin=vmin, vmax=vmax)
+            s = mlab.pipeline.surface(
+                delaunay, opacity=0.8, colormap=colormap, vmin=vmin, vmax=vmax
+            )
         if filename is not None:
             engine = mlab.get_engine()
             scene = engine.scenes[0]
 
             poly_data_reader = engine.open(filename, scene)
             mlab.pipeline.surface(poly_data_reader, **filename_kwargs)
-        mlab.view(azimuth=camera_kwargs['azimuth'], elevation=camera_kwargs['elevation'], distance=camera_kwargs['distance'], focalpoint='auto')
+        mlab.view(
+            azimuth=camera_kwargs["azimuth"],
+            elevation=camera_kwargs["elevation"],
+            distance=camera_kwargs["distance"],
+            focalpoint="auto",
+        )
