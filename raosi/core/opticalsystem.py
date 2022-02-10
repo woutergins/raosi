@@ -15,6 +15,7 @@ import mayavi
 import vtk
 from .material import Material
 from .objects import Lens, Window, Detector
+from .rays import Bundle
 
 __all__ = ["OpticalSystem"]
 
@@ -222,6 +223,7 @@ class OpticalSystem(object):
         self.ray_sources = []
         self.stepping = 20
         self.n = 1.0
+        self.original_bundle = None
 
     def add_lens(self, lens_selection, position, material, reference=1):
         """Adds a lens to the set of objects.
@@ -304,12 +306,29 @@ class OpticalSystem(object):
         ----------
         bundle : Bundle
             The Bundle to be added to the set of rays to be propagated."""
-        self.original_bundle = bundle
+        try:
+            self.original_bundle = self.original_bundle.merge(bundle)
+        except:
+            self.original_bundle = bundle
+
+    def add_background(self, bundle):
+        """Adds a bundle of rays to be propagated.
+
+        Parameters
+        ----------
+        bundle : Bundle
+            The Bundle to be added to the set of rays to be propagated."""
+        try:
+            self.background_bundle = self.background_bundle.merge(bundle)
+        except:
+            self.background_bundle = bundle
 
     def clear_bundle(self):
         """Removes all rays to be propagated."""
         self.original_bundle = None
+        self.background_bundle = None
         self.bundles = []
+        self.backgroundbundles = []
 
     def propagate_to_end(self):
         """Propagate the rays to the end of the final object."""
@@ -326,6 +345,19 @@ class OpticalSystem(object):
             for bundle in bundles[:-1]:
                 bundle.intersect(bundles[-1])
         self.bundles = bundles
+
+        try:
+            bundles = [self.background_bundle.clone()]
+            for obj in self.objects:
+                b = bundles[-1]
+                logger.debug("Transferring backgroundrays to object {}.".format(obj[0]))
+                return_bundles = obj[1].transfer_rays(b, self.n, self.n)
+                bundles.extend(return_bundles)
+                for bundle in bundles[:-1]:
+                    bundle.intersect(bundles[-1])
+            self.backgroundbundles = bundles
+        except:
+            pass
 
     def parallel_after_object(self, object_number, method="nelder"):
         """Create a parallel beam after a certain object.
@@ -412,14 +444,22 @@ class OpticalSystem(object):
             beginning. Takes absorbance into account.
         float
             Relative intensity (in percent) of the bundle at the end compared to the
-            beginngin. Only takes the geometrical efficiency into account."""
+            beginning. Only takes the geometrical efficiency into account."""
         intensity = self.bundles[-1].intensity
-        return (
-            intensity.sum() / self.original_bundle.intensity.sum() * 100,
-            intensity.shape[0] / self.original_bundle.intensity.shape[0] * 100,
-        )
+        absorbed_signal = intensity.sum() / self.original_bundle.intensity.sum() * 100
+        geom_signal = intensity.shape[0] / self.original_bundle.intensity.shape[0] * 100
 
-    def show_distribution(self, ax=None):
+        return_value = (absorbed_signal, geom_signal)
+        try:
+            background_intensity = self.backgroundbundles[-1].intensity
+            absorbed_background = background_intensity.sum() / self.background_bundle.intensity.sum() * 100
+            geom_background = background_intensity.shape[0] / self.background_bundle.intensity.shape[0] * 100
+            return_value += (absorbed_background, geom_background)
+        except Exception as e:
+            pass
+        return return_value
+
+    def show_distribution(self, ax=None, background=True):
         """Plot the yz-distribution of the rays on the final plane.
 
         Parameters
@@ -434,6 +474,11 @@ class OpticalSystem(object):
         axis
             Axis instance in which the distribution is drawn."""
         detector = self.bundles[-1].positions
+        if background:
+            try:
+                detector = np.vstack([detector, self.backgroundbundles[-1].positions])
+            except:
+                pass
         detector_y, detector_z = detector[:, 1], detector[:, 2]
         intensity = self.bundles[-1].intensity
 
@@ -467,7 +512,7 @@ class OpticalSystem(object):
                     ax.plot([-x, x], [-slit / 2, -slit / 2], color="k", lw=3)
         return fig, ax
 
-    def plot_efficiency(self, parameter_name, ax=None, dx=0.5):
+    def plot_efficiency(self, parameter_name, ax=None, dx=0.5, offset=0, label=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
@@ -486,20 +531,34 @@ class OpticalSystem(object):
             parameter_range = np.arange(*parameter_range, dx)
             efficiency = np.zeros(parameter_range.shape)
             absorbed_efficiency = np.zeros(parameter_range.shape)
+            stb = np.zeros(parameter_range.shape)
             for i, v in enumerate(parameter_range):
                 self.set_parameter(parameter_name, v)
+                logger.info("Calculating efficiency for {} at {:0.2f}".format(parameter_name, v))
                 self.propagate_to_end()
-                e1, e2 = self.efficiency()
-                absorbed_efficiency[i] = e1
-                efficiency[i] = e2
-            ax.plot(
-                parameter_range, absorbed_efficiency, label="Efficiency with absorption"
-            )
-            ax.plot(parameter_range, efficiency, label="Geometric efficiency")
-            ax.set_ylabel("Efficiency [%]")
+                e = self.efficiency()
+                absorbed_efficiency[i] = e[0]
+                efficiency[i] = e[1]
+                try:
+                    stb[i] = e[0]/e[2]
+                except:
+                    pass
+            if stb.sum()>0:
+                ax.plot(parameter_range-offset, stb, label="Signal to background")
+            else:
+                ax.plot(
+                    parameter_range-offset, absorbed_efficiency, label="Efficiency with absorption"
+                )
+                ax.plot(parameter_range-offset, efficiency, label="Geometric efficiency")
+                ax.set_ylabel("Efficiency [%]")
+            if label is None:
+                ax.set_xlabel(parameter_name)
+            else:
+                ax.set_xlabel(label)
             ax.legend(loc=0)
             self.set_parameter(parameter_name, value)
             self.propagate_to_end()
+            return parameter_range-offset, absorbed_efficiency, efficiency, stb
 
     def show_ray_paths(
         self,
@@ -511,6 +570,7 @@ class OpticalSystem(object):
         filename=None,
         filename_kwargs={},
         original=10,
+        background=True
     ):
         """Plot the path of the rays and the objects in a Mayavi scene.
 
@@ -535,20 +595,28 @@ class OpticalSystem(object):
             If this is larger than 0, the original rays are propagated this distance and
             then drawn, connected to their original position, in order to visualise
             the initial distribution."""
-        try:
-            if not len(self.rays) == len(self.objects):
-                self.propagate_to_end()
-        except AttributeError:
-            self.propagate_to_end()
+        # try:
+        #     if not len(self.bundles) == 2*len(self.objects):
+        #         self.propagate_to_end()
+        # except AttributeError:
+        #     self.propagate_to_end()
+        bundles = self.bundles
+        if background:
+            if len(self.backgroundbundles) > 0:
+                try:
+                    bundles = [original.merge(b) for original, b in zip(self.bundles, self.backgroundbundles)]
+                except Exception as e:
+                    bundles = self.bundles
 
-        final_rays = self.bundles[-1].positions.shape[0]
-        ray_number = min(int(final_rays / 100 * percentage), 500)
+        final_rays = bundles[-1].positions.shape[0]
+        ray_number = min(int(final_rays / 100 * percentage), 1000)
+        # ray_number = int(final_rays / 100 * percentage)
         stepping = int(final_rays / ray_number)
-        x = np.hstack([r.positions[::stepping, 0] for r in self.bundles])
-        y = np.hstack([r.positions[::stepping, 1] for r in self.bundles])
-        z = np.hstack([r.positions[::stepping, 2] for r in self.bundles])
-        intensity = np.hstack([r.intensity[::stepping] for r in self.bundles])
-        indices = np.hstack([r.indices[::stepping] for r in self.bundles])
+        x = np.hstack([r.positions[::stepping, 0] for r in bundles])
+        y = np.hstack([r.positions[::stepping, 1] for r in bundles])
+        z = np.hstack([r.positions[::stepping, 2] for r in bundles])
+        intensity = np.hstack([r.intensity[::stepping] for r in bundles])
+        indices = np.hstack([r.indices[::stepping] for r in bundles])
 
         for v in np.unique(indices):
             locations = np.where(indices == v)[0]
@@ -589,13 +657,19 @@ class OpticalSystem(object):
         glyph.glyph.scale_mode = "data_scaling_off"
 
         if original:
-            original_rays = self.original_bundle.positions.shape[0]
-            ray_numbers = min(int(original_rays / 100 * percentage), 500)
+            bundle = self.original_bundle
+            if background:
+                try:
+                    bundle = bundle.merge(self.background_bundle)
+                except:
+                    pass
+            original_rays = bundle.positions.shape[0]
+            ray_numbers = min(int(original_rays / 100 * percentage), 10000)
             steps = int(original_rays / ray_numbers)
 
-            pos = self.original_bundle.positions[::steps]
-            direc = self.original_bundle.directions[::steps]
-            ind = self.original_bundle.indices[::steps]
+            pos = bundle.positions[::steps]
+            direc = bundle.directions[::steps]
+            ind = bundle.indices[::steps]
             new_pos = pos + original * direc
 
             x = np.hstack([r[:, 0] for r in [pos, new_pos]])

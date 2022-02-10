@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 import numpy as np
 import copy
 
-__all__ = ["Bundle", "RaySource"]
+__all__ = ["Bundle", "RaySource", "BackgroundSource"]
 
 
 class Bundle(object):
@@ -59,14 +59,14 @@ class Bundle(object):
     def merge(self, bundle):
         positions = np.vstack([self.positions, bundle.positions])
         directions = np.vstack([self.directions, bundle.directions])
-        intensity = np.vstack([self.intensity, bundle.intensity])
-        wavelength = np.vstack([self.wavelengths, bundle.wavelength])
-        indices = np.vstack([self.indices, bundle.indices])
+        intensity = np.hstack([self.intensity, bundle.intensity])
+        wavelength = np.hstack([self.wavelengths, bundle.wavelengths])
+        # indices = np.vstack([self.indices, bundle.indices])
 
         return_value = self.__class__(
-            positions, directions, intensity, wavelength, indices
+            positions, directions, intensity, wavelength
         )
-        return_value.index_max = max(self.index_max, bundle.index_max)
+        # return_value.index_max = max(self.index_max, bundle.index_max)
         return return_value
 
     def mask(self, mask, inline=True):
@@ -89,6 +89,49 @@ class Bundle(object):
 
     def clone(self):
         return copy.deepcopy(self)
+
+class BackgroundSource(object):
+    """docstring for RaySource"""
+
+    def __init__(
+        self, N, size, wavelength, direction="x"
+    ):
+        super().__init__()
+        self.N = N
+        self.size = size
+        self.direction = direction
+        self.wavelength = wavelength
+
+    def background(self, n):
+        pos = np.zeros((n, 3))
+        pos[:, 0] = 1
+        return pos
+
+
+    def generate_rays(self):
+        function = self.background
+
+        x_pos = np.zeros(self.N)
+        if self.size is float:
+            y_pos = np.random.rand(self.N) * self.size - self.size/2
+            z_pos = np.random.rand(self.N) * self.size - self.size/2
+        else:
+            y_pos = np.random.rand(self.N) * self.size[0] - self.size[0]/2
+            z_pos = np.random.rand(self.N) * self.size[1] - self.size[1]/2
+
+        direc = function(len(x_pos))
+        x_direc, y_direc, z_direc = direc[:, 0], direc[:, 1], direc[:, 2]
+
+        ray_pos = np.vstack([x_pos, y_pos, z_pos]).T
+        ray_direc = np.vstack([x_direc, y_direc, z_direc,]).T
+
+        return_rays = Bundle(
+            ray_pos,
+            ray_direc,
+            np.ones(ray_pos.shape[0]),
+            np.ones(ray_pos.shape[0]) * self.wavelength,
+        )
+        return return_rays
 
 
 class RaySource(object):
