@@ -224,6 +224,9 @@ class OpticalSystem(object):
         self.stepping = 20
         self.n = 1.0
         self.original_bundle = None
+        self.background_bundle = None
+        self.bundles = []
+        self.backgroundbundles = []
 
     def add_lens(self, lens_selection, position, material, reference=1):
         """Adds a lens to the set of objects.
@@ -337,7 +340,7 @@ class OpticalSystem(object):
     def propagate_to_object(self, object_number):
         """Propagate the rays up to a certain object."""
         bundles = [self.original_bundle.clone()]
-        for obj in self.objects:
+        for obj in self.objects[:object_number]:
             b = bundles[-1]
             logger.debug("Transferring rays to object {}.".format(obj[0]))
             return_bundles = obj[1].transfer_rays(b, self.n, self.n)
@@ -348,7 +351,7 @@ class OpticalSystem(object):
 
         try:
             bundles = [self.background_bundle.clone()]
-            for obj in self.objects:
+            for obj in self.objects[:object_number]:
                 b = bundles[-1]
                 logger.debug("Transferring backgroundrays to object {}.".format(obj[0]))
                 return_bundles = obj[1].transfer_rays(b, self.n, self.n)

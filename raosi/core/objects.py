@@ -292,7 +292,7 @@ class Lens(GlassObject):
     def give_surface_2(self, array):
         return self.thickness - self.__mapping__[self.surface_2](
             array, self.parameters[1]
-        )
+        ) + self.__mapping__[self.surface_1](np.array([[0, 0]]), self.parameters[0])
 
 
 class Window(GlassObject):

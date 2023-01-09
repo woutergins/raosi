@@ -35,7 +35,7 @@ system.parameters["Lens_1"].min = 40
 system.parameters["Lens_1"].max = 50
 
 thickness = system.objects[0][1].thickness
-r = system.parallel_after_object(0, method="brute")
+# r = system.parallel_after_object(0, method="brute")
 system.parameters["Lens_1"].vary = False
 
 lens_position = system.parameters["Lens_1"].value
@@ -55,7 +55,8 @@ system.parameters["Window_3"].vary = False
 system.add_detector(window_location + window_thickness + pmt_distance, pmt_size, slit=6)
 system.parameters["Detector_4"].vary = False
 
-r = system.focus_at_object(4, method="brute")
+# r = system.focus_at_object(4, method="brute")
+system.propagate_to_end()
 system.parameters.pretty_print()
 
 aperture = system.objects[0][1].aperture
